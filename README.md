@@ -190,6 +190,7 @@ own name — those were written by a patcher with the wrong packing.
 | `docs/pitfalls.md` | 29 documented failure modes, each with symptom → cause → fix |
 | `lightkey/resolve.py` | Inspection library: `load()`, `find_instances()`, `resolve(objs, uid, depth=N)` |
 | `lightkey/colour.py` | `pack_color` / `c8` / `unpack_rgb8`, uniform-brightness palettes |
+| `lightkey/build.py` | `Builder` plus `mk_preset` / `mk_cue` / `mk_button` / `mk_sequence` / `mk_text_label` / `mk_cpan_frame` and `build_fpstore` |
 | `lightkey/validate.py` | `Validator` — semantic checks on a file you generated |
 | `tools/inspect_project.py` | CLI: dump fixtures, cues, panels, groups, schema flavour, MIDI/key bindings (`--midi`, dead ones flagged) |
 | `tools/probe_colour.py` | CLI: prove the colour byte order against your own project |

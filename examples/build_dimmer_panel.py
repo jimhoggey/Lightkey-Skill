@@ -5,10 +5,13 @@ End-to-end example: add a working "rocker switch" dimmer row to an existing proj
 Demonstrates the load-bearing patterns in one readable file:
   * discovering fixtures instead of hardcoding UUIDs
   * building an fpStore (old umbrellaContainers schema)
-  * raw-string names, NSSet for activeSpeedModifiers, per-cue orphanPresetsGroup
   * a mutually-exclusive LXPresetGroup so the buttons release each other
   * attaching under the EXISTING root preset group, never replacing it
   * reusing the source file's class definitions and empty-collection singletons
+
+The archive plumbing — raw-string names, NSSet for activeSpeedModifiers, a
+per-cue orphanPresetsGroup — lives in lightkey/build.py, so this file stays
+about the design decisions rather than the schemas.
 
 Usage:
     python3 examples/build_dimmer_panel.py input.lightkeyproj output.lightkeyproj
@@ -23,103 +26,19 @@ import uuid as _uuid
 from plistlib import UID
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from lightkey.resolve import classname, find_instances, load  # noqa: E402
+from lightkey.build import (Builder, build_fpstore, mk_button, mk_cue,  # noqa: E402
+                            mk_preset, mk_preset_group)
+from lightkey.resolve import find_instances  # noqa: E402
 
-UID_NULL = UID(0)
 LEVELS = [('Off', 0.0), ('25%', 0.25), ('50%', 0.5), ('75%', 0.75), ('100%', 1.0)]
-
-
-class Builder:
-    """Appends objects to an existing archive, reusing its classes and singletons."""
-
-    def __init__(self, archive):
-        self.objs = archive['$objects']
-        self._cls = {o['$classname']: UID(i) for i, o in enumerate(self.objs)
-                     if isinstance(o, dict) and '$classname' in o}
-        self._empty_arr = self._empty_dict = None
-        na, nd = self._cls.get('NSArray'), self._cls.get('NSDictionary')
-        for i, o in enumerate(self.objs):
-            if not isinstance(o, dict):
-                continue
-            if self._empty_arr is None and o.get('$class') == na and o.get('NS.objects') == []:
-                self._empty_arr = UID(i)
-            if (self._empty_dict is None and o.get('$class') == nd
-                    and o.get('NS.keys') == [] and o.get('NS.objects') == []):
-                self._empty_dict = UID(i)
-
-    def add(self, obj):
-        u = UID(len(self.objs))
-        self.objs.append(obj)
-        return u
-
-    def cls(self, name):
-        if name not in self._cls:
-            raise SystemExit(f'class {name!r} not in this project — see pitfalls.md Bug 10')
-        return self._cls[name]
-
-    def raw_str(self, text):
-        """Names are RAW plist strings. Wrapping them in NSMutableString makes
-        Lightkey silently drop the object (pitfalls.md Bug 14)."""
-        return self.add(text)
-
-    def uuid(self):
-        return self.add({'NS.uuidbytes': _uuid.uuid4().bytes, '$class': self.cls('NSUUID')})
-
-    def array(self, uids):
-        uids = list(uids)
-        if not uids and self._empty_arr is not None:
-            return self._empty_arr
-        return self.add({'NS.objects': uids, '$class': self.cls('NSArray')})
-
-    def empty_dict(self):
-        if self._empty_dict is None:
-            self._empty_dict = self.add({'NS.keys': [], 'NS.objects': [],
-                                         '$class': self.cls('NSDictionary')})
-        return self._empty_dict
-
-    def nsset(self, uids):
-        return self.add({'NS.objects': list(uids), '$class': self.cls('NSSet')})
 
 
 def fp_intensity(fixture_uuids, level):
     """Intensity-only fpStore: touches the dimmer and nothing else, so colour
     presets can compose with it freely (docs/patterns.md §2)."""
-    umbrella = {u: {'definedFeatures': ['Intensity'],
-                    'fixtureContainer': {},
-                    'segmentContainers': [{'intensity': float(level)}]}
-                for u in fixture_uuids}
-    return plistlib.dumps({'isMutable': False, 'umbrellaContainers': umbrella},
-                          fmt=plistlib.FMT_BINARY)
-
-
-def mk_preset(b, name, fp_bytes):
-    return b.add({'name': b.raw_str(name), 'UUID': b.uuid(), 'active': False,
-                  'childNodes': b.array([]), 'fpStore': b.add(fp_bytes),
-                  '$class': b.cls('LXPreset')})
-
-
-def mk_cue(b, name, presets, priority=4):
-    empty = b.empty_dict()
-    orphans = b.add({'name': b.raw_str('Cue Orphan Presets Group'), 'UUID': b.uuid(),
-                     'childNodes': b.array([]), 'presetsAreMutuallyExclusive': False,
-                     '$class': b.cls('LXRootPresetGroup')})   # unique per cue (Bug 8)
-    return b.add({'name': b.raw_str(name), 'UUID': b.uuid(), 'active': False,
-                  'activateAtStartup': False, 'activateAtShutdown': False,
-                  'excludeFromLiveTriggers': False, 'requiresUnlockedApp': False,
-                  'fadeInDuration': 1.0, 'fadeOutDuration': 1.0, 'fadeDuration': 0.5,
-                  'holdDuration': -1.0, 'priority': int(priority), 'intensity': 1.0,
-                  'presets': b.array(presets), 'orphanPresetsGroup': orphans,
-                  'metaModifiers': empty, 'metaModifierDefaults': empty,  # shared (Bug 2)
-                  'activeSpeedModifiers': b.nsset([]),                    # NSSet (Bug 1)
-                  'intensityFeatures': UID_NULL, '$class': b.cls('LXCue')})
-
-
-def mk_button(b, cue, x, y, w, h):
-    return b.add({'cue': cue, 'rect': b.raw_str(f'{{{{{x}, {y}}}, {{{w}, {h}}}}}'),
-                  'type': 0, 'behavior': 0, 'vertical': False, 'titleAlignment': 0,
-                  'titleUnderlineStyle': 0, 'clusterRequiresSelection': False,
-                  'colorName': UID_NULL, 'titleFont': UID_NULL,
-                  '$class': b.cls('LXCpanButton')})
+    return build_fpstore({u: {'defined_features': ['Intensity'],
+                              'segment': {'intensity': float(level)}}
+                          for u in fixture_uuids})
 
 
 def fixture_uuids(objs, limit=None):
@@ -157,14 +76,11 @@ def main():
     for i, (label, level) in enumerate(LEVELS):
         p = mk_preset(b, f'Dim {label}', fp_intensity(fixtures, level))
         presets.append(p)
-        buttons.append(mk_button(b, mk_cue(b, f'All: {label}', [p]),
+        buttons.append(mk_button(b, mk_cue(b, f'All: {label}', [p], priority=4),
                                  16 + i * 96, 24, 90, 40))
 
     # Mutual exclusion — this is what makes the buttons behave like a rocker switch.
-    group = b.add({'name': b.raw_str('Example Dimmer'), 'UUID': b.uuid(),
-                   'childNodes': b.array(presets),
-                   'presetsAreMutuallyExclusive': True,
-                   '$class': b.cls('LXPresetGroup')})
+    group = mk_preset_group(b, 'Example Dimmer', presets, mutually_exclusive=True)
 
     # Attach under the EXISTING root. Replacing top.rootPresetGroup makes the Live
     # panel render empty (Bug 13).
@@ -172,10 +88,10 @@ def main():
     root_children = objs[int(root['childNodes'])]
     root_children['NS.objects'] = [group] + list(root_children.get('NS.objects', []))
 
-    panel = b.add({'name': b.raw_str('Example Dimmer Panel'), 'UUID': b.uuid(),
-                   'items': b.array(buttons), 'fadeDuration': 0.3,
+    panel = b.add({'name': b.raw_str('Example Dimmer Panel'), 'UUID': b.uuid_obj(),
+                   'items': b.ns_array(buttons), 'fadeDuration': 0.3,
                    '$class': b.cls('LXControlPanel')})
-    top['livePanels'] = b.array([panel] + list(objs[int(top['livePanels'])]['NS.objects']))
+    top['livePanels'] = b.ns_array([panel] + list(objs[int(top['livePanels'])]['NS.objects']))
     top['selectedLivePanel'] = panel
 
     with open(out, 'wb') as f:

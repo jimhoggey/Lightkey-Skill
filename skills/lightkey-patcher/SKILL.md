@@ -23,6 +23,7 @@ To use the Python from a working directory of your own, either add the repo root
 import sys; sys.path.insert(0, '<plugin-root>')
 from lightkey.resolve import load, find_instances, classname
 from lightkey.colour import pack_color, c8, unpack_rgb8
+from lightkey.build import Builder, build_fpstore, mk_preset, mk_cue, mk_button
 from lightkey.validate import Validator
 ```
 
@@ -74,7 +75,7 @@ Three phases per task. Follow them in order.
 **Always** start by inspecting the user's existing `.lightkeyproj` before modifying it.
 
 1. Load with `plistlib.load()` (binary plist, `plistlib` handles it natively).
-2. Use the resolver library at `lightkey/resolve.py` — copy into your working directory and `import resolve`.
+2. Use the resolver library at `lightkey/resolve.py` — copy into your working directory and `import resolve`. `lightkey/build.py` is its write-side counterpart.
 3. **Dump the class inventory** so you know which schemas the file uses.
 4. **Capture the fixture short-name → UUID mapping.** Every preset references fixtures by UUID. Address-stable mapping is the single most important reference you'll build.
 5. **Check the fpStore schema.** Old schema = `umbrellaContainers` (most files in the wild). Newer schema = `containers`/`subcontainers` (Effects Showcase). Flag to user if you encounter the newer schema — this documentation targets the old one.
@@ -204,11 +205,12 @@ Load these as needed — not all at once.
 
 - **`lightkey/resolve.py`** — Reusable inspection library. `find_instances(classname)`, `resolve(uid, depth=N)`. Copy into your working directory and `import resolve`.
 - **`lightkey/colour.py`** — `pack_color` / `c8` / `unpack_rgb8` (corrected byte order), anchor+variation palettes, sequence-step builders.
+- **`lightkey/build.py`** — The `Builder` and every constructor this documentation's snippets call: `build_fpstore`, `mk_preset`, `mk_seq_preset`, `mk_preset_group`, `mk_root_preset_group`, `mk_sequence`, `mk_cue`, `mk_button`, `mk_text_label`, `mk_cpan_frame`. Appends to the source archive, reusing its class defs and empty-collection singletons; names are raw strings and no UID is hardcoded, so the rules above are satisfied by construction. Use this rather than re-deriving the key sets from `class-schemas.md`.
 - **`lightkey/validate.py`** — Ready-made semantic validator (`docs/patterns.md` §21). `Validator(src, out)` then `structural_parity()`, `buttons_resolve()`, `preserved_buttons()`, `no_overlap(ignore_preexisting=True)`, `labels_fit()`, `mutex_intact([...])`, `cue_in_group()`, `single_member_in()`, `one_shot()`, `fixtures_dark()`, `hues_within()`, `depth_stops()`, `movers_aim_high()`, `report()`. Every check accumulates instead of raising, so one run shows every problem. Verified against a real 92-button panel.
 - **`tools/inspect_project.py`** — CLI structure dump: object counts, fpStore schema flavour, native-effect histogram, preset groups with their mutex flags, cues, panels. `--fixtures` prints the short-name → UUID map; `--panel` details every button and label; `--classes` flags duplicate class definitions.
 - **`tools/probe_colour.py`** — CLI that decodes every named colour preset under both byte orders and reports which one agrees with the preset names. Also flags presets whose stored colour contradicts their own name — those were written by a patcher with the wrong packing and render the wrong colour on real fixtures.
 - **`tools/extract_effects.py`** — Pull native-effect blobs out of a reference project so they can be cloned verbatim.
-- **`examples/build_dimmer_panel.py`** — Small end-to-end builder: discovers fixtures, builds intensity-only presets, wires a mutually-exclusive group, attaches under the existing root, adds a panel. Read this before writing your own builder.
+- **`examples/build_dimmer_panel.py`** — Small end-to-end builder on top of `lightkey/build.py`: discovers fixtures, builds intensity-only presets, wires a mutually-exclusive group, attaches under the existing root, adds a panel. Read this before writing your own.
 
 ## Quick-start
 
@@ -248,7 +250,7 @@ For anything beyond inspection, read `docs/pitfalls.md` (the silent failures) th
 
 ```python
 top, objs = archive['$top'], archive['$objects']
-b = Builder(archive)          # your own builder; examples/build_dimmer_panel.py has a working one
+b = Builder(archive)          # from lightkey.build
 
 def gs(u):                                   # resolve a name reference to str
     x = objs[int(u)] if isinstance(u, UID) else None

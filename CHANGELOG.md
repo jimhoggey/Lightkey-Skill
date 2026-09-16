@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+**`lightkey/build.py`** — the `Builder` and constructors the docs have always called are now
+shipped instead of left to the reader: `build_fpstore`, `mk_preset`, `mk_seq_preset`,
+`mk_preset_group`, `mk_root_preset_group`, `mk_sequence`, `mk_cue`, `mk_button`,
+`mk_text_label`, `clone_text_attrs`, `mk_cpan_frame`. Key sets match `docs/class-schemas.md`;
+names are raw strings (Bug 14), no UID is hardcoded (Bug 15), font and colour objects are
+discovered from the source file, empty collections reuse its singletons, and
+`activeSpeedModifiers` / `LXCpanFrame.members` are NSSets. `mk_text_label` defaults to
+`autoAdjustsWidth: False` — with `True` Lightkey re-measures on load and the box can grow over
+neighbouring buttons (Bug 24). `mk_cpan_frame` adds the `LXCpanFrame` / `LXCanvasItem` class
+definitions when the source file lacks them.
+
+Previously `docs/patterns.md` and the SKILL quick-starts called `mk_sequence`, `mk_cpan_frame`,
+`b.ns_array` and friends, while the only shipped builder was the cut-down one inside
+`examples/build_dimmer_panel.py` with different method names (`array`, `nsset`, `uuid`) and no
+sequence, label or frame constructors at all. The example now imports the shared module, so
+there is one builder rather than two that disagree.
+
+Verified end to end against a real 34-fixture project: 27 structural and semantic checks pass,
+including mutex rockers, a one-shot cue, a 13pt cloned hint font and colour hues decoding back
+to the families they were named for.
+
 ## 0.3.0 — 2026-09-30
 
 A correctness fix in the shipped library, one new corner of the format, and a pass that removed

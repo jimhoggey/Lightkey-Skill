@@ -598,7 +598,7 @@ The shape of the whole build:
 ```python
 archive = plistlib.load(open(SRC, 'rb'))
 top, objs = archive['$top'], archive['$objects']
-b = Builder(archive)          # your own builder; examples/build_dimmer_panel.py has a working one
+b = Builder(archive)          # from lightkey.build
 
 stage_look = find_group('v18 Stage Look')     # by NAME — UIDs shift (Bug 23)
 movers_grp = find_group('v18 Movers')

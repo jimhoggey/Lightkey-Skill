@@ -49,7 +49,7 @@ This is the schema the reference project uses. All current patterns in this docu
 
 - **Each key in `umbrellaContainers` is a fixture UUID string** — specifically, the `UUID` of the `LXDMXFixture` object. Not the beam UUID — these are the same thing in current Lightkey files.
 - **Missing fixtures = "don't touch"**. If a preset omits a fixture, Lightkey leaves that fixture's state to whatever lower-priority cue is driving it (or the default). This is how LTP layering works.
-- **`definedFeatures`** is an allowlist of what the preset controls. Include ONLY the features you want to drive. A colour-only preset that still includes `'Intensity'` in `definedFeatures` will clobber intensity (even if you didn't set a value).
+- **`definedFeatures`** is an allowlist of what the preset controls. Include ONLY the features you want to drive. A colour-only preset that still includes `'Intensity'` in `definedFeatures` will clobber intensity (even if you didn't set a value). Features are plain words (`'Color'`, `'Intensity'`, `'PanTilt'`, `'Shutter'`, `'Speed'`) only where Lightkey has a built-in feature for the channel; anything else — a Macro, Function, Haze or Fan Speed channel — is named by a generated `custom--<profile>--<personality>--<index>` string and valued in `fixtureContainer` (see Custom capabilities).
 - **`shutterState`**: 1 = open, 2 = strobe (with `strobeSpeed` in Hz). "Closed" has never been observed as a distinct code — every off preset relies on `intensity: 0`. Decode the enum from the fixture profile's `LXShutterStrobeCapability.settings` (see Moving-head practicalities).
 
 ## Schema — newer (containers)
@@ -194,12 +194,90 @@ The returned bytes go into `$objects` as a plain bytes entry (no class wrapper),
 | `strobeSpeed` | segment | Hz; 2–16 seen in GUI-made presets |
 | `panAngle`, `tiltAngle` | segment | radians; sign/mirroring is per rig — derive from aims the user has confirmed |
 | `speedMode`, `vectorSpeed` | fixtureContainer | `1`, `1.0` on every moving-head preset seen; copy them whenever you write `PanTilt` |
+| `custom--<PROFILE UUID>--<personality>--<index>` | fixtureContainer | `[settingIndex, fraction]` for a capability Lightkey has no built-in feature for — Macro, Function, Haze, Fan Speed. See Custom capabilities below |
 
 `definedFeatures` must list exactly the features whose keys are present: `Color` ↔ `color`,
 `Intensity` ↔ `intensity`, `Shutter` ↔ `shutterState`, `PanTilt` ↔ `panAngle/tiltAngle` (+
 `Speed` with the fixtureContainer speed keys). A feature named without its key, or a key without
 its feature, is the kind of shape Lightkey rejects silently — assert the correspondence in your
 validator.
+
+Not every feature is a plain word like `Color`. A capability the app has no built-in feature for —
+an `LXCustomCapability`, such as a Macro, Function, Haze or Fan Speed channel — is named in
+`definedFeatures` by a generated `custom--…` string instead, and its value lives in
+`fixtureContainer` rather than a segment. See the next section.
+
+## Custom capabilities (`LXCustomCapability`)
+
+A capability that isn't one of Lightkey's built-in features appears in `definedFeatures` as a
+generated string rather than a word:
+
+```
+custom--<PROFILE UUID, UPPERCASE>--<personalityIndex>--<index>
+```
+
+The UUID is the profile's own `UUID`, uppercased — read it from your file, don't expect the one
+another rig quotes to mean anything on yours.
+
+`<index>` is the capability's position in that personality's `capabilities` array **after sorting
+by `channel`** (the channel offset), not its raw position in the array. The two differ often
+enough that reading the raw index straight out of the file will address the wrong channel.
+Two profiles in one project pin this down from both directions:
+
+- A two-channel hazer personality stores its capabilities in the array as
+  `[ch1 'Fan Speed', ch0 'Haze']` — reversed relative to channel order — and addresses them as
+  `--0--0` = Haze and `--0--1` = Fan Speed. Sorted order, not array order.
+- A seven-channel wash personality, already in channel order, addresses `--<p>--6` as its
+  'Function Speed' capability, channel 6 of 0..6. The sort is a no-op here, so this case alone
+  would not have caught the rule — it's the pair that proves it.
+
+The **value** does not go in a `segmentContainer`. It goes in that fixture's `fixtureContainer`
+under the same key, as a two-element list:
+
+```python
+[settingIndex, fractionWithinThatSetting]
+```
+
+- `settingIndex` indexes the capability's own `settings` array. Each `LXSetting` carries `$0` — an
+  `_NSKeyedCoderOldStyleArray` whose `$0` is the DMX range start and `$1` the range end, with `-1`
+  meaning 255 — plus `params`, either `{'name': 'Output High'}` or `{'continuous': True}`.
+- `fraction` is `0.0`–`1.0` within that DMX band, so `0.0` lands on the bottom of the range.
+
+**The DMX range bytes are signed** (`NS.type` 67 = signed char), so anything above 127 reads
+negative. Mask with `& 0xFF` before comparing or sorting ranges.
+
+### Worked example
+
+The v19 preset named '0%, Haze Output High, Fan Speed 100%' drives the hazer's two custom
+channels and nothing else:
+
+```python
+HAZER_PROFILE = '...'   # that profile's own UUID, uppercased, read from your file
+
+def custom_feature(profile_uuid, personality, index):
+    return f'custom--{profile_uuid}--{personality}--{index}'
+
+haze = custom_feature(HAZER_PROFILE, 0, 0)    # channel 0 — Haze
+fan  = custom_feature(HAZER_PROFILE, 0, 1)    # channel 1 — Fan Speed
+
+build_fpstore({
+    HAZER_FIXTURE_UUID: {
+        'defined_features': [haze, fan],
+        'fixture_container': {
+            haze: [2, 0.0],   # settings[2] = 'Output High' (DMX 128–255); 0.0 = bottom of it
+            fan:  [0, 1.0],   # the single continuous 0–255 setting, at full
+        },
+        'segment': {},        # no segment keys at all
+    },
+})
+```
+
+Derive the setting indices from the profile in *the user's own file* rather than hard-coding them —
+read the capability's `settings`, mask each range with `& 0xFF`, and look up the `params['name']`
+you want. The reference project's build script does exactly this, asserting the capability names
+and the ascending DMX order against the profile in the file before it emits a single key — if the
+profile isn't shaped the way the script expects, it stops rather than writing a preset that points
+at the wrong channel.
 
 ## Common segment shapes
 

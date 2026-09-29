@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.3.0 — 2026-09-30
+
+A correctness fix in the shipped library, one new corner of the format, and a pass that removed
+rig-identifying data from the docs.
+
+**Corrections**
+- `fp_dim()` wrote `shutterState 2` for an off state. 2 is **strobe**, so a layered cue that later
+  raised intensity inherited a strobe — the exact trap `docs/pitfalls.md` warns about. It now
+  writes `1` (open) unconditionally, like the other helpers. Anyone who built off states with
+  `fp_dim()` on moving heads should rebuild them.
+- `class-schemas.md` said name fields are `NSMutableString`; they are raw plist strings (Bug 14).
+  Corrected everywhere it appeared.
+- Pattern cross-references in `pitfalls.md` were off by one section; Bugs 27–29 were at the wrong
+  heading level and escaped their section grouping; `patterns.md` contents now lists all 28
+  sections.
+
+**New format knowledge** (`docs/fpstore-format.md`)
+- **Custom capabilities** (`LXCustomCapability` — Macro, Function, Haze, Fan Speed). A capability
+  with no built-in Lightkey feature is named in `definedFeatures` as
+  `custom--<PROFILE UUID>--<personality>--<index>`, where `<index>` is the capability's position
+  **after sorting the personality's capabilities by channel offset**, not its raw array position.
+  A profile that stores its capabilities out of channel order will otherwise be addressed on the
+  wrong channel.
+- That feature's value lives in `fixtureContainer`, not a `segmentContainer`, as
+  `[settingIndex, fractionWithinThatSetting]`.
+- `LXSetting` DMX range bytes are signed (`NS.type` 67 = signed char), so anything above 127 reads
+  negative and must be masked with `& 0xFF`.
+
+**Documentation hygiene**
+- Removed rig-identifying data found by an independent audit of every tracked file: a person's
+  name, a third-party project's preset names, a fixture model spec, a real patch address, and
+  pan/tilt aims measured on one rig. Each is replaced by the rule it was evidence for, plus
+  advice to read the value from your own profile and confirm aims on your own rig.
+
+**Housekeeping**
+- `colour.py` docstring imports from `lightkey.colour` rather than a loose `colour_helpers`.
+- `build_skill_zip.py` no longer ships `.DS_Store` inside the bundle.
+- Repository links updated after the GitHub repos were renamed.
+- `lightkey.__version__` is `0.3.0`.
+
 ## 0.2.0 — 2026-09-08
 
 Consolidates a second round of real-rig work (a MIDI-driven video opener sharing a file with a

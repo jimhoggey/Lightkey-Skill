@@ -11,7 +11,7 @@
       "name": "lightkey-patcher",
       "source": "./",
       "description": "Read, inspect and programmatically modify Lightkey .lightkeyproj DMX projects on macOS — format docs, 32 documented failure modes, a revision workflow, colour-order probe, semantic validator, and an optional Stream Deck MIDI add-on.",
-      "version": "0.2.0",
+      "version": "0.5.0",
       "category": "productivity",
       "tags": ["lightkey", "dmx", "stage-lighting", "macos", "file-format", "midi", "stream-deck"]
     }

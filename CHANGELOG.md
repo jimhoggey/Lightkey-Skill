@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-09-30
+
+A revision workflow for shows that already run, the Lightkey side of MIDI as a library, and an
+optional second skill that builds Stream Deck profiles for the cues. Two bundles from this release
+on: `lightkey-patcher-skill.zip` (as before) and `lightkey-streamdeck-skill.zip` (the add-on).
+The plugin manifests move from `0.2.0` straight to `0.5.0` — they were not bumped for 0.3.0 or
+0.4.0, so Claude Code installs never saw those updates; `/plugin marketplace update lightkey-format`
+now brings everything since 0.2.0.
 
 ### Revising a show that already runs
 
@@ -66,6 +73,8 @@ profile/show pair that crashed Lightkey on the rig: it fails every affected key.
 
 **`tools/build_skill_zip.py`** builds one claude.ai bundle per skill
 (`lightkey-patcher-skill.zip`, `lightkey-streamdeck-skill.zip`).
+
+- `lightkey.__version__`, `plugin.json` and `marketplace.json` are `0.5.0`.
 
 ## 0.4.0 — 2026-09-30
 

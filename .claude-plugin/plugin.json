@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "lightkey-patcher",
   "displayName": "Lightkey Patcher",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "description": "Read, inspect and programmatically modify Lightkey .lightkeyproj DMX projects on macOS — reverse-engineered format docs, 32 documented failure modes, a staged workflow for revising a live show, colour-order probe, semantic validator, and an optional Stream Deck add-on that builds MIDI profiles for your cues.",
   "author": {
     "name": "lightkey-format contributors",

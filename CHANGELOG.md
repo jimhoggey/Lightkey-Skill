@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-09-30
 
 **`lightkey/build.py`** — the `Builder` and constructors the docs have always called are now
 shipped instead of left to the reader: `build_fpstore`, `mk_preset`, `mk_seq_preset`,
@@ -21,7 +21,15 @@ there is one builder rather than two that disagree.
 
 Verified end to end against a real 34-fixture project: 27 structural and semantic checks pass,
 including mutex rockers, a one-shot cue, a 13pt cloned hint font and colour hues decoding back
-to the families they were named for.
+to the families they were named for. Re-verified before release against a 36-fixture project:
+`examples/build_dimmer_panel.py` builds a five-step dimmer row and the output passes 13 checks,
+including key-set parity for every class it mints and `references_are_uids()`.
+
+**Note for anyone on 0.3.0 or earlier**: the skill bundle shipped `lightkey/` without
+`build.py`, so the constructors `docs/patterns.md` calls were not importable. Re-download
+`lightkey-patcher-skill.zip` from this release.
+
+- `lightkey.__version__` is `0.4.0`.
 
 ## 0.3.0 — 2026-09-30
 

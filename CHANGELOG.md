@@ -1,5 +1,72 @@
 # Changelog
 
+## Unreleased
+
+### Revising a show that already runs
+
+**`docs/update-workflow.md`** — the loop the SKILL was missing: ten stages from request to
+hand-off, each with a gate. Build on the user's newest Lightkey save (never your last output);
+diagnose every "it doesn't work" before changing anything (a symptom → cause table); route each
+change to the doc section and helper it needs (a request → knowledge table); ask only the real
+choices, with a recommended option; build in place; validate in three layers; hand off with an
+ordered rig test and a rollback file; write hardware results back into the docs. `SKILL.md` now
+summarises it and points there for every revision.
+
+**`examples/revision/`** — `build_next.py` and `validate_next.py`, the templates a revision copies:
+refuse to overwrite, re-find by name scoped to one panel (names repeat across panels), edit in
+place, counted assertions; and structure → preservation → semantics checks.
+
+**`lightkey/validate.py`**
+- `unchanged_except(presets, cues)`: every preset (by fpStore bytes) and cue (timing, priority)
+  you did not name is exactly what the user saved, matched by UUID. The check that lets a revision
+  say "nothing else changed".
+- `bindings_intact()`: every source MIDI/key binding survives with the same trigger and cue.
+- `Validator(src, out, panel='Name')`: the panel checks no longer assume `$top.selectedLivePanel`,
+  which Lightkey 6 re-saves can drop (the checks raised `KeyError` on such files).
+
+**`lightkey/bindings.py`** — list MIDI and keyboard bindings, find free notes, add note triggers
+(cloned from one the user made in the GUI; refuses a used note; stable binding UUIDs), change a
+trigger's behaviour. Proven across ten shipped versions with ~260 triggers.
+
+**`tools/export_midi_map.py`** — the show's MIDI map as CSV (channel, note, cue, panel, group,
+behaviour, On/off, port); dead bindings show an empty cue.
+
+**Docs**
+- `fpstore-format.md` → Custom capabilities → **Built-in programmes and modes, in practice**:
+  what a weekly-revised show added to 0.3.0's encoding — Lightkey reshuffles the capabilities
+  array between saves (so the channel sort is the only stable index), a key for the wrong
+  personality silently does nothing, default values vanish on re-save, 0.5 lands mid-band on a
+  stepped setting, programmes still need Intensity, and "works in Design view" means outranked.
+- `class-schemas.md` → Bindings: the full `activationBehavior` enum (0 Toggle, 1 Flash, 2 Activate,
+  3 Deactivate), 0-based channels, `onOff`, `endpointName` $null = any port; scripted bindings are
+  no longer "not exercised".
+- `pitfalls.md` Bugs 30–32: a cue outranked by priority (works in Design view, not as a cue);
+  controller note-offs + "On/off" ticked → feedback loop and crash; custom-capability index counted
+  in array order.
+
+### Optional add-on: Stream Deck profiles over MIDI
+
+**`skills/lightkey-streamdeck/`** — a second skill in the plugin, used only when the user asks for
+Stream Deck keys or the show already has a profile. **`docs/streamdeck-midi.md`** holds everything
+learned driving a show from a 15-key Stream Deck over ten versions: the plugin and Lightkey's
+`Lightkey Input` / `Lightkey Output` ports and feedback; which Stream Deck key mode pairs with which
+Lightkey trigger behaviour (Latch ↔ Flash, Push ↔ Toggle, Hold ↔ Flash; never On/off with Latch);
+latch groups (global across profiles, one per Lightkey group, only redraw the visible page);
+App Nap and start order on the booth Mac; a rig test order; the profile file format and the
+plugin's settings fields.
+
+**`streamdeck/`** with **`tools/build_streamdeck_profile.py`** and
+**`tools/check_streamdeck_profile.py`**: build a profile from the user's exported profile + the show +
+a layout JSON (`examples/streamdeck_layout.json`), deriving each key's note, mode and latch group from
+the show so the deck cannot disagree with it; optional AppKit-rendered key icons and preview sheets
+on macOS; refuses unsafe pairings; checks any profile against a show and diffs it against the
+previous one. Verified by regenerating a hand-built 12-page, 105-key production profile exactly
+(every note, channel, mode, latch group and position), and by running the checker against the
+profile/show pair that crashed Lightkey on the rig: it fails every affected key.
+
+**`tools/build_skill_zip.py`** builds one claude.ai bundle per skill
+(`lightkey-patcher-skill.zip`, `lightkey-streamdeck-skill.zip`).
+
 ## 0.4.0 — 2026-09-30
 
 **`lightkey/build.py`** — the `Builder` and constructors the docs have always called are now

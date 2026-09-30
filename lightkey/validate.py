@@ -17,10 +17,15 @@ Usage:
     v.mutex_intact(['v18 Stage Look', 'v18 Movers'])
     v.cue_in_group('Coral', 'v18 Stage Look')
     v.hues_within('PARTY MODE', {'red', 'orange', 'yellow', 'magenta', 'white'})
+    v.unchanged_except(presets=['Warm Glow'], cues=['Warm Glow'])   # nothing else moved
     v.report()                     # prints PASS/FAIL, returns True if all passed
 
 Every method appends to self.passed / self.failed rather than raising, so one run
 surfaces every problem. Add project-specific assertions with v.chk(cond, msg).
+
+Files re-saved by Lightkey 6 can lack `$top.selectedLivePanel`. Pass
+`Validator(src, out, panel='My Panel')` to name the panel to check; without it the
+selected panel is used, then the first live panel.
 """
 import colorsys
 import plistlib
@@ -59,10 +64,11 @@ def _nums(s):
 
 
 class Validator:
-    def __init__(self, src_path, out_path):
+    def __init__(self, src_path, out_path, panel=None):
         self.sA, self.oA = R.load(src_path)
         self.sB, self.oB = R.load(out_path)
         self.ORIG = len(self.oA)          # objects at/after this index are new
+        self.panel_name = panel
         self.passed, self.failed = [], []
 
     # ---- helpers -------------------------------------------------------
@@ -85,8 +91,22 @@ class Validator:
             return self.gs(sv, objs) if isinstance(sv, UID) else sv
         return None
 
+    def _panel_of(self, objs, top):
+        """The panel under test: by name if given, else the selected one, else the first.
+        Lightkey 6 re-saves can drop `selectedLivePanel`, so it is never assumed."""
+        panels = [objs[int(u)] for u in objs[int(top['livePanels'])]['NS.objects']]
+        if self.panel_name is not None:
+            for p in panels:
+                if self.gs(p.get('name'), objs) == self.panel_name:
+                    return p
+            raise SystemExit(f'no live panel named {self.panel_name!r}')
+        sel = top.get('selectedLivePanel')
+        if isinstance(sel, UID) and int(sel):
+            return objs[int(sel)]
+        return panels[0]
+
     def panel(self):
-        return self.oB[int(self.sB['$top']['selectedLivePanel'])]
+        return self._panel_of(self.oB, self.sB['$top'])
 
     def items(self):
         return [int(i) for i in self.oB[int(self.panel()['items'])]['NS.objects']]
@@ -210,7 +230,7 @@ class Validator:
 
     def preserved_buttons(self):
         """Bug 22 — the user's own buttons must survive untouched but for position."""
-        panelA = self.oA[int(self.sA['$top']['selectedLivePanel'])]
+        panelA = self._panel_of(self.oA, self.sA['$top'])
         src = {}
         for i in self.oA[int(panelA['items'])]['NS.objects']:
             ob = self.oA[int(i)]
@@ -228,7 +248,7 @@ class Validator:
         self.chk(not meta, f'reused buttons keep behavior/tint ({len(meta)} changed)')
 
     def _boxes(self, objs, top):
-        panel = objs[int(top['selectedLivePanel'])]
+        panel = self._panel_of(objs, top)
         out = []
         for iu in objs[int(panel['items'])]['NS.objects']:
             ob = objs[int(iu)]
@@ -408,6 +428,61 @@ class Validator:
                                                   for seg in cont.get('segmentContainers', [])):
                         lit.add(fu.upper())
         self.chk(not lit, f'{cue_name}: protected fixtures never lit ({len(lit)} lit)')
+
+    # ---- revision checks (docs/update-workflow.md) -----------------------
+    def _by_uuid(self, objs, cls):
+        out = {}
+        for u in R.find_instances(objs, cls):
+            key = R.resolve(objs, objs[u].get('UUID'))
+            if key:
+                out[str(key).upper()] = u
+        return out
+
+    CUE_FIELDS = ('priority', 'fadeInDuration', 'fadeOutDuration', 'holdDuration', 'intensity',
+                  'activateAtStartup', 'excludeFromLiveTriggers')
+
+    def unchanged_except(self, presets=(), cues=()):
+        """The strongest revision check: every preset (and sequence step) whose fpStore bytes
+        changed, and every cue whose timing or priority changed, is one you meant to change.
+        Presets and cues are matched by UUID, which survives Lightkey's re-save; names repeat
+        across panels, so a name in `presets` / `cues` allows every object with that name.
+        Also fails if any preset or cue from the source is missing."""
+        pA, pB = self._by_uuid(self.oA, 'LXPreset'), self._by_uuid(self.oB, 'LXPreset')
+        cA, cB = self._by_uuid(self.oA, 'LXCue'), self._by_uuid(self.oB, 'LXCue')
+        self.chk(set(pA) <= set(pB), f'no source preset removed ({len(set(pA) - set(pB))} missing)')
+        self.chk(set(cA) <= set(cB), f'no source cue removed ({len(set(cA) - set(cB))} missing)')
+
+        def fp(objs, u):
+            ref = objs[u].get('fpStore')
+            return objs[int(ref)] if isinstance(ref, UID) else None
+
+        changed_p = sorted({self.gs(self.oB[pB[k]].get('name')) for k in set(pA) & set(pB)
+                            if fp(self.oA, pA[k]) != fp(self.oB, pB[k])})
+        changed_c = sorted({self.gs(self.oB[cB[k]].get('name')) for k in set(cA) & set(cB)
+                            if any(self.oA[cA[k]].get(f) != self.oB[cB[k]].get(f) for f in self.CUE_FIELDS)})
+        stray_p = [n for n in changed_p if n not in set(presets)]
+        stray_c = [n for n in changed_c if n not in set(cues)]
+        self.chk(not stray_p, f'only intended presets changed ({len(changed_p)} changed, '
+                              f'{len(stray_p)} unexpected) {stray_p[:5]}')
+        self.chk(not stray_c, f'only intended cues changed ({len(changed_c)} changed, '
+                              f'{len(stray_c)} unexpected) {stray_c[:5]}')
+        return changed_p, changed_c
+
+    def bindings_intact(self):
+        """Bug 28 — every source MIDI/key binding still exists with the same trigger and still
+        points at a cue that exists."""
+        from . import bindings as BD
+        a = {(b['kind'], b['channel'], b['note'], b.get('key')): b['cue_uuid']
+             for b in BD.list_bindings(self.oA, self.sA['$top'])}
+        b_ = {(b['kind'], b['channel'], b['note'], b.get('key')): b['cue_uuid']
+              for b in BD.list_bindings(self.oB, self.sB['$top'])}
+        lost = [k for k, v in a.items() if b_.get(k) != v]
+        self.chk(not lost, f'all {len(a)} source bindings kept, same trigger, same cue ({len(lost)} lost) {lost[:4]}')
+        cues = set(self._by_uuid(self.oB, 'LXCue'))
+        dead = [k for k, v in b_.items() if v not in cues]
+        self.chk(not dead, f'every binding points at an existing cue ({len(dead)} dead) {dead[:4]}')
+        slots = [k for k in b_ if k[0] == 'midi']
+        self.chk(len(slots) == len(set(slots)), 'no MIDI channel/note used twice')
 
     # ---- output --------------------------------------------------------
     def report(self):

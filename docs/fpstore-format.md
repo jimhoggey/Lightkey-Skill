@@ -279,6 +279,39 @@ and the ascending DMX order against the profile in the file before it emits a si
 profile isn't shaped the way the script expects, it stops rather than writing a preset that points
 at the wrong channel.
 
+### Built-in programmes and modes, in practice
+
+Macro channels with built-in programmes, "sound active", an LED bar's "Function" and "Function
+Speed" follow the same encoding. What a weekly-revised live show added to it:
+
+* **`personalityIndex` is the fixture's own** — the personality it is patched in. A key written
+  for another personality is kept in the file and silently does nothing.
+* **The array order is not stable, which is why the sort matters.** Lightkey reorders a
+  personality's `capabilities` array from one save to the next: in one profile, array position 6
+  held channel 5, 2, 0, 5 and 1 across five re-saves, while the sorted-by-channel position of every
+  key Lightkey itself wrote landed on the named capability every time. See `pitfalls.md` Bug 32.
+* **`fraction` 0.5 lands mid-band** on a stepped setting such as "Program Effect 1" (DMX 96–107):
+  safer than 0.0 if a fixture's bands are narrower than the profile says. Continuous settings such
+  as a speed take the real fraction (`[0, 0.5]` = half speed).
+* **Lightkey omits a default value (`[0, 0.0]`) when it re-saves:** the key stays in
+  `definedFeatures`, the `fixtureContainer` entry disappears. Both forms mean the first setting.
+* **Print the table from the profile in the user's file, never from memory:**
+
+```python
+pers = kids(profile['personalities'])[fixture['personalityIndex']]
+caps = sorted((objs[c] for c in kids(objs[pers]['capabilities'])), key=lambda c: c['channel'])
+for i, cap in enumerate(caps):
+    if txt(cap.get('customName')) not in (None, '$null'):
+        settings = [params(objs[s])['name'] for s in kids(cap['settings'])]
+        print(i, txt(cap['customName']), settings)      # i is the capability_index
+```
+
+* A built-in programme usually overrides the fixture's RGB, but its dimmer still applies: give the
+  preset `Intensity` (and `Shutter` open where the profile has one) or the programme runs dark.
+* **If a cue carrying a correct custom value "does nothing" but the same function works from
+  Lightkey's Design view, the encoding is fine — another cue is outranking it.** Design overrides
+  every cue. See `pitfalls.md` Bug 30.
+
 ## Common segment shapes
 
 ### Intensity-only dimmer

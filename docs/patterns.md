@@ -887,10 +887,11 @@ Design rules, each of which was a bug before it was a rule:
    about (long-throw fresnels, incandescent) go into the "never lit by this block" set and
    the validator asserts it for every cue in the block.
 
-Binding semantics, from decoding a project's existing MIDI map (`class-schemas.md` →
-Bindings): `activationBehavior 0` = toggle on note, `1` = active while the note is held.
-Toggle + one-shot is the robust pair for senders that emit note-on/note-off in quick
-succession; "while held" only works if the sender holds the note.
+Binding semantics (`class-schemas.md` → Bindings): `activationBehavior 0` Toggle, `1` Flash
+(active while the note is held), `2` Activate, `3` Deactivate. Toggle + one-shot is the robust
+pair for senders that emit note-on/note-off in quick succession; Flash only works if the sender
+holds the note. Add the notes with `lightkey/bindings.py`; for a Stream Deck driving the same
+cues, `docs/streamdeck-midi.md` sets out which behaviour each key type needs.
 
 ## 25. Twin flows: an animated version of a static look, seamlessly
 

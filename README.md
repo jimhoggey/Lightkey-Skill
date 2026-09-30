@@ -53,6 +53,11 @@ Upload a ZIP — no terminal needed.
 You also need **code execution enabled** in settings, because the skill runs Python.
 Skills you upload are private to your account.
 
+**Optional add-on — Stream Deck buttons for your cues:**
+[**lightkey-streamdeck-skill.zip**](https://github.com/jimhoggey/Lightkey-Skill/releases/latest/download/lightkey-streamdeck-skill.zip).
+Upload it the same way. Only needed if you run your show from an Elgato Stream Deck. (The Claude
+Code plugin above already includes it.)
+
 > ⚠️ **Don't use the green "Code → Download ZIP" button on this repo.** That archive has
 > `SKILL.md` in the wrong place and Claude will reject it. Use the download link above —
 > it's the same content, packaged the way Claude needs.
@@ -71,6 +76,7 @@ Nothing to configure. Claude uses it automatically as soon as you mention Lightk
 git clone https://github.com/jimhoggey/Lightkey-Skill ~/.claude/lightkey-format
 mkdir -p ~/.claude/skills
 ln -s ~/.claude/lightkey-format/skills/lightkey-patcher ~/.claude/skills/lightkey-patcher
+ln -s ~/.claude/lightkey-format/skills/lightkey-streamdeck ~/.claude/skills/lightkey-streamdeck   # optional
 ```
 
 `SKILL.md` refers to `docs/…` and `lightkey/…` relative to the repo root, which the symlink
@@ -127,7 +133,32 @@ Make the animated flow exactly match the static look so I can switch between the
 
 Check this file I generated: is anything broken, and does the panel have
 text hidden behind buttons?
+
+Here's my latest save. The warm look drifts to white — keep it warm, and give
+the movers two positions aimed at the side walls.
+
+These cues do nothing when I press them, but the same thing works in Design view.
+
+Make me a Stream Deck profile for this show, with the house levels on the home
+page, and keys that light up while their cue is on.
 ```
+
+## Revising a show you already run
+
+Most of the work after version 1 is small changes to a show that runs every week. The skill
+follows a staged loop for that (`docs/update-workflow.md`): it builds on **your newest save**
+(so your own edits in Lightkey survive), diagnoses anything "broken" before changing it, asks
+only the questions that are really yours, builds a new numbered version, proves that nothing
+you didn't ask about changed, and hands back test steps for the rig and a file to roll back to.
+
+## Optional: Stream Deck buttons
+
+If you run the show from a Stream Deck, the **lightkey-streamdeck** add-on builds the profile:
+one key per cue, sending MIDI notes through the free "MIDI" plugin by Trevliga Spel into
+Lightkey, with keys that light while their cue is live. It reads every note, key type and
+group from your show file, so the deck and the show can't disagree, and it refuses the
+key/trigger combination that crashed Lightkey on a live rig. Export your current profile from
+the Stream Deck app, attach it with your show, and ask. Details: `docs/streamdeck-midi.md`.
 
 A realistic first session:
 
@@ -187,17 +218,27 @@ own name — those were written by a patcher with the wrong packing.
 | `docs/class-schemas.md` | Field-by-field schemas for `LXCue`, `LXPreset`, `LXSequence`, `LXControlPanel`, `LXCpanButton`, `LXTextCanvasItem`, MIDI/key bindings, fixture profiles & capabilities |
 | `docs/fpstore-format.md` | The inner binary plist each preset carries: `umbrellaContainers`, colour packing, native effects, moving heads |
 | `docs/patterns.md` | 28 working recipes: radio groups, LTP layering, beat-synced sequences, mirrored gradients, collision-checked layout, one-shot cues, MIDI/timeline show blocks, twin flows, strobes, moving-head vocabulary |
-| `docs/pitfalls.md` | 29 documented failure modes, each with symptom → cause → fix |
+| `docs/pitfalls.md` | 32 documented failure modes, each with symptom → cause → fix |
+| `docs/update-workflow.md` | The staged loop for revising a show that already runs: base file, diagnosis table, request → doc routing, validation layers, hand-off |
+| `docs/streamdeck-midi.md` | Stream Deck add-on: how keys, the MIDI plugin and Lightkey's ports connect; key mode ↔ trigger behaviour pairing; latch groups; profile format |
 | `lightkey/resolve.py` | Inspection library: `load()`, `find_instances()`, `resolve(objs, uid, depth=N)` |
 | `lightkey/colour.py` | `pack_color` / `c8` / `unpack_rgb8`, uniform-brightness palettes |
 | `lightkey/build.py` | `Builder` plus `mk_preset` / `mk_cue` / `mk_button` / `mk_sequence` / `mk_text_label` / `mk_cpan_frame` and `build_fpstore` |
-| `lightkey/validate.py` | `Validator` — semantic checks on a file you generated |
+| `lightkey/bindings.py` | MIDI bindings: list them, find free notes, add note triggers, change a trigger's behaviour |
+| `lightkey/validate.py` | `Validator` — semantic checks on a file you generated, including `unchanged_except()` and `bindings_intact()` for revisions |
+| `streamdeck/` | Stream Deck profile builder and checker (the add-on's library) |
 | `tools/inspect_project.py` | CLI: dump fixtures, cues, panels, groups, schema flavour, MIDI/key bindings (`--midi`, dead ones flagged) |
 | `tools/probe_colour.py` | CLI: prove the colour byte order against your own project |
+| `tools/export_midi_map.py` | CLI: the show's MIDI map as CSV |
+| `tools/build_streamdeck_profile.py` | CLI: build a Stream Deck profile from a show + layout (+ icons on macOS) |
+| `tools/check_streamdeck_profile.py` | CLI: check any profile against the show; diff against the previous one |
 | `tools/extract_effects.py` | Pull native-effect blobs out of a reference project for cloning |
-| `tools/build_skill_zip.py` | Repackage the repo as a claude.ai skill ZIP upload |
+| `tools/build_skill_zip.py` | Repackage the repo as claude.ai skill ZIP uploads (one per skill) |
 | `examples/build_dimmer_panel.py` | End-to-end: build a working radio-group dimmer panel |
+| `examples/revision/` | Templates for a revision build and its validator |
+| `examples/streamdeck_layout.json` | Annotated Stream Deck layout |
 | `skills/lightkey-patcher/SKILL.md` | Entry point when used as a Claude skill or plugin |
+| `skills/lightkey-streamdeck/SKILL.md` | Entry point for the optional Stream Deck add-on |
 | `.claude-plugin/` | Plugin + marketplace manifests |
 
 ## Quick start (Python only)

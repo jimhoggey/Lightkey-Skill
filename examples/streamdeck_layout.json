@@ -1,0 +1,59 @@
+{
+ "_comment": [
+  "Layout for tools/build_streamdeck_profile.py. Cue names must match the Lightkey show exactly.",
+  "Each page is rows x columns (grid). A cell is a cue name, LABEL (page title, needs a Text key in the",
+  "template export), NEXT, PREV, or null for an empty key.",
+  "Key mode, MIDI note/channel and latch group are read from the show, not written here.",
+  "channels: only consider bindings on these MIDI channels (cue names can repeat across panels).",
+  "group_prefix: only exclusive groups whose name starts with this become latch groups; the prefix is",
+  "stripped from the key's category text and the latch group name.",
+  "latch_prefix: Stream Deck latch groups are global across ALL profiles, so give them a prefix.",
+  "keys: optional artwork per cue: category (small top line), lines (big text), colors (hex list, or",
+  "'look' to take the deepest and palest colour the cue shows in the show). Also mode / channel / group",
+  "to override what the show implies (rarely needed)."
+ ],
+ "profile_name": "Lightkey Service Panel",
+ "grid": [5, 3],
+ "channels": [2],
+ "group_prefix": "",
+ "latch_prefix": "Lightkey ",
+ "midi_out": "Lightkey Input",
+ "midi_in": "Lightkey Output",
+ "pages": [
+  {
+   "label": null,
+   "keys": [
+    ["House: 5%", "House: 10%", "House: 20%", "House: 50%", "House: 100%"],
+    ["Front Wash: Off", "Front Wash: 30%", "Front Wash: 50%", "Front Wash: 70%", null],
+    ["Preach", "Announcements", "BLACKOUT", null, "NEXT"]
+   ]
+  },
+  {
+   "label": ["WORSHIP", "COLOUR"],
+   "keys": [
+    ["LABEL", "Warm Glow", "Ocean", "Rose", "Sage"],
+    ["Warm Glow Flow", "Ocean Flow", "Rose Flow", "Sage Flow", "PREV"],
+    ["Stage Off", null, null, null, "NEXT"]
+   ]
+  },
+  {
+   "label": ["MOVERS"],
+   "keys": [
+    ["LABEL", "Movers: Stage", "Movers: Up", "Movers: Wide", "Movers: Off"],
+    ["Movers: Slow Sweep", "Movers: Circle", null, null, "PREV"],
+    ["Haze: Off", "Haze: Low", "Haze: High", "Top Flash", null]
+   ]
+  }
+ ],
+ "keys": {
+  "House: 5%": {"category": "HOUSE", "lines": ["5%"], "colors": ["#FFB020"]},
+  "House: 10%": {"category": "HOUSE", "lines": ["10%"], "colors": ["#FFB020"]},
+  "House: 20%": {"category": "HOUSE", "lines": ["20%"], "colors": ["#FFB020"]},
+  "House: 50%": {"category": "HOUSE", "lines": ["50%"], "colors": ["#FFB020"]},
+  "House: 100%": {"category": "HOUSE", "lines": ["100%"], "colors": ["#FFB020"]},
+  "BLACKOUT": {"category": "MASTER", "lines": ["BLACK", "OUT"], "colors": ["#FF3B30"]},
+  "Warm Glow": {"category": "WORSHIP", "lines": ["Warm", "Glow"], "colors": "look"},
+  "Warm Glow Flow": {"category": "FLOW", "lines": ["Warm", "Glow"], "colors": "look"},
+  "Top Flash": {"category": "PUNCH · HOLD", "lines": ["Top", "Flash"], "colors": ["#FF375F"]}
+ }
+}

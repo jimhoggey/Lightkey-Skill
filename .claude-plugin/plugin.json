@@ -3,7 +3,7 @@
   "name": "lightkey-patcher",
   "displayName": "Lightkey Patcher",
   "version": "0.2.0",
-  "description": "Read, inspect and programmatically modify Lightkey .lightkeyproj DMX projects on macOS — reverse-engineered format docs, 29 documented failure modes, colour-order probe, and a semantic validator.",
+  "description": "Read, inspect and programmatically modify Lightkey .lightkeyproj DMX projects on macOS — reverse-engineered format docs, 32 documented failure modes, a staged workflow for revising a live show, colour-order probe, semantic validator, and an optional Stream Deck add-on that builds MIDI profiles for your cues.",
   "author": {
     "name": "lightkey-format contributors",
     "url": "https://github.com/jimhoggey/Lightkey-Skill"
@@ -21,6 +21,8 @@
     "macos",
     "nskeyedarchiver",
     "plist",
-    "file-format"
+    "file-format",
+    "midi",
+    "stream-deck"
   ]
 }

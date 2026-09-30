@@ -1,6 +1,6 @@
 ---
 name: lightkey-patcher
-description: Read, inspect, and programmatically modify macOS Lightkey lighting-control project files (.lightkeyproj). Use whenever a user mentions Lightkey, .lightkeyproj, DMX lighting automation on Mac, stage/venue/worship lighting panels, batch-generating cues or presets, or wants to build control panels, beat-synced sequences, scene cues, or modify fixture/cue/preset/panel data in a Lightkey project. Also trigger for "edit my Lightkey file", "build a control panel programmatically", "generate cues in bulk", "add beat-synced effects to lights", "my lights are showing the wrong colour", or any task involving the NSKeyedArchiver binary plist format Lightkey uses. Captures hard-won knowledge about Lightkey's internal file format that is NOT publicly documented.
+description: Read, inspect, and programmatically modify macOS Lightkey lighting-control project files (.lightkeyproj). Use whenever a user mentions Lightkey, .lightkeyproj, DMX lighting automation on Mac, stage/venue/worship lighting panels, batch-generating cues or presets, or wants to build control panels, beat-synced sequences, scene cues, MIDI notes for cues, or modify fixture/cue/preset/panel data in a Lightkey project. Also trigger for "edit my Lightkey file", "update my show", "make version N", "change these colours", "this cue doesn't work", "build a control panel programmatically", "generate cues in bulk", "add beat-synced effects to lights", "my lights are showing the wrong colour", or any task involving the NSKeyedArchiver binary plist format Lightkey uses. Captures hard-won knowledge about Lightkey's internal file format that is NOT publicly documented. For Stream Deck profiles that drive the cues, see the lightkey-streamdeck skill.
 ---
 
 # Lightkey Patcher
@@ -49,6 +49,32 @@ python3 tools/inspect_project.py  <project>.lightkeyproj --midi   # bindings, de
 3. **Validate the written file's semantics, not just its shape.** Key-set parity catches
    decode crashes. It does not catch labels rendering under buttons, a mutex group that
    stopped rockering, or a red that comes out blue. `patterns.md` §21.
+
+## Updating a show the user already runs
+
+Most requests after the first version are revisions: "change these colours", "this doesn't work",
+"add two positions". Follow **`docs/update-workflow.md`** for those — ten stages, each with a gate:
+
+1. **Request** → a numbered change list, each tagged fix / adjust / add / layout / routine.
+2. **Base file** → the user's newest Lightkey save, never your own last output.
+3. **Diagnose** every fix before changing anything (e.g. "works in Design view, not as a cue" =
+   outranked by priority, `pitfalls.md` Bug 30).
+4. **Route** each change to its doc section and helper (the table in the workflow doc).
+5. **Decide** — ask only real choices, with a recommended option.
+6. **Build** in place from `examples/revision/build_next.py`.
+7. **Validate** from `examples/revision/validate_next.py`: structure, then
+   `unchanged_except()` (nothing you didn't name moved), then one check per claim.
+8. **Companion files** — MIDI map CSV, Stream Deck profile if the show has one.
+9. **Hand-off** — operator notes with an ordered rig test and the rollback file.
+10. **Learn** — hardware-verified results go back into the docs.
+
+## Optional add-on: Stream Deck keys over MIDI
+
+If the user wants hardware buttons for their cues, or the show already has a Stream Deck profile,
+use the **lightkey-streamdeck** skill (`skills/lightkey-streamdeck/SKILL.md`,
+`docs/streamdeck-midi.md`) after the show file is built. It reads every key's note, mode and latch
+group from the show, so the deck can't disagree with it, and it refuses the key/trigger pairing that
+crashed Lightkey on a rig. Don't build a profile unless asked.
 
 ## When this documentation applies
 
@@ -199,14 +225,19 @@ Load these as needed — not all at once.
 - **`docs/class-schemas.md`** — Exact field schemas for every Lightkey class, plus MIDI/key bindings and fixture profiles/capabilities (how to tell from the file whether a fixture can strobe or has a white channel). Consult before building any of them. **Note: as of this revision, the `name` field on `LXCue` / `LXPreset` / `LXPresetGroup` / `LXSequence` / `LXControlPanel` should be a RAW STRING UID (not an `NSMutableString` wrapper). The class-schemas doc may still show NSMutableString — defer to pitfalls.md Bug 14.**
 - **`docs/fpstore-format.md`** — The inner binary plist every `LXPreset` carries. Covers `umbrellaContainers`, the native `effects` array, **colour packing (read this before any palette work)**, moving-head practicalities, the clone-and-retarget pattern.
 - **`docs/patterns.md`** — Architectural patterns: radio groups, LTP layering, beat sequences, colour palettes, per-zone gradients, unified Stage Look mutex, priority stacks, momentary buttons, plus §17–§28: in-place redesign, mirror-pair gradients, collision-checked layout, composite event cues, output validation, palette-driven flows, one-shot cues, MIDI/timeline show blocks, twin flows, carving into an existing layout, strobes and hard-cut chases, moving-head position vocabulary.
-- **`docs/pitfalls.md`** — Specific mistakes that have crashed Lightkey on open, made the panel render empty, or silently destroyed the user's own work. **Read this BEFORE writing any code.** Bugs 1–20 are decode/render failures; Bugs 21–29 are the ones that bite when rebuilding on a file the user has been editing (27: ints where UIDs belong, 28: bindings orphaned by rebuilt cues, 29: the shared empty-array singleton).
+- **`docs/pitfalls.md`** — Specific mistakes that have crashed Lightkey on open, made the panel render empty, or silently destroyed the user's own work. **Read this BEFORE writing any code.** Bugs 1–20 are decode/render failures; Bugs 21–29 are the ones that bite when rebuilding on a file the user has been editing (27: ints where UIDs belong, 28: bindings orphaned by rebuilt cues, 29: the shared empty-array singleton); Bugs 30–32 come from weekly revisions of a live show (30: a cue outranked by priority, 31: controller note-offs + "On/off" → feedback crash, 32: custom-capability index counted in array order).
+- **`docs/update-workflow.md`** — The stage-by-stage loop for revising a show the user already runs: base file, diagnosis table, request → doc routing table, validation layers, hand-off.
+- **`docs/streamdeck-midi.md`** — The Stream Deck add-on: how keys, the MIDI plugin, Lightkey's ports and feedback connect; which key mode pairs with which trigger behaviour; latch groups; the profile file format.
 
 ## Bundled scripts
 
 - **`lightkey/resolve.py`** — Reusable inspection library. `find_instances(classname)`, `resolve(uid, depth=N)`. Copy into your working directory and `import resolve`.
 - **`lightkey/colour.py`** — `pack_color` / `c8` / `unpack_rgb8` (corrected byte order), anchor+variation palettes, sequence-step builders.
 - **`lightkey/build.py`** — The `Builder` and every constructor this documentation's snippets call: `build_fpstore`, `mk_preset`, `mk_seq_preset`, `mk_preset_group`, `mk_root_preset_group`, `mk_sequence`, `mk_cue`, `mk_button`, `mk_text_label`, `mk_cpan_frame`. Appends to the source archive, reusing its class defs and empty-collection singletons; names are raw strings and no UID is hardcoded, so the rules above are satisfied by construction. Use this rather than re-deriving the key sets from `class-schemas.md`.
-- **`lightkey/validate.py`** — Ready-made semantic validator (`docs/patterns.md` §21). `Validator(src, out)` then `structural_parity()`, `buttons_resolve()`, `preserved_buttons()`, `no_overlap(ignore_preexisting=True)`, `labels_fit()`, `mutex_intact([...])`, `cue_in_group()`, `single_member_in()`, `one_shot()`, `fixtures_dark()`, `hues_within()`, `depth_stops()`, `movers_aim_high()`, `report()`. Every check accumulates instead of raising, so one run shows every problem. Verified against a real 92-button panel.
+- **`lightkey/validate.py`** — Ready-made semantic validator (`docs/patterns.md` §21). `Validator(src, out, panel=None)` then `structural_parity()`, `buttons_resolve()`, `preserved_buttons()`, `no_overlap(ignore_preexisting=True)`, `labels_fit()`, `mutex_intact([...])`, `cue_in_group()`, `single_member_in()`, `one_shot()`, `fixtures_dark()`, `hues_within()`, `depth_stops()`, `movers_aim_high()`, **`unchanged_except(presets, cues)`** (everything you didn't name is byte-for-byte the source), **`bindings_intact()`**, `report()`. Every check accumulates instead of raising, so one run shows every problem. Pass `panel='Name'` for files Lightkey 6 re-saved without `selectedLivePanel`. Verified against a real 92-button panel.
+- **`lightkey/bindings.py`** — MIDI/keyboard bindings: `list_bindings()`, `used_slots()`, `free_notes()`, `add_note_trigger()` (clones a GUI-made binding; refuses a used note), `set_behaviour()`; `TOGGLE`/`FLASH`/`ACTIVATE`/`DEACTIVATE`. Channels are 1-based in this API.
+- **`examples/revision/build_next.py` + `validate_next.py`** — Templates for a revision: refuse-to-overwrite, re-find by name scoped to a panel, edit in place, counted assertions; and the three-layer validator. Copy them to `build_v<N>.py` / `validate_v<N>.py`.
+- **`tools/export_midi_map.py`** — The show's MIDI map as CSV (channel, note, cue, panel, group, behaviour, On/off, port); dead bindings show an empty cue.
 - **`tools/inspect_project.py`** — CLI structure dump: object counts, fpStore schema flavour, native-effect histogram, preset groups with their mutex flags, cues, panels. `--fixtures` prints the short-name → UUID map; `--panel` details every button and label; `--classes` flags duplicate class definitions.
 - **`tools/probe_colour.py`** — CLI that decodes every named colour preset under both byte orders and reports which one agrees with the preset names. Also flags presets whose stored colour contradicts their own name — those were written by a patcher with the wrong packing and render the wrong colour on real fixtures.
 - **`tools/extract_effects.py`** — Pull native-effect blobs out of a reference project so they can be cloned verbatim.

@@ -590,3 +590,71 @@ every empty array in the archive.
 must append to an existing group, replace the reference (`group['childNodes'] = new_array_uid`)
 instead of mutating the array object. Assert `int(group['childNodes']) != EMPTY_ARRAY_UID` before
 any in-place append.
+
+## Iteration cycle 4: revising a show that runs every week (v25 → v34)
+
+A long run of small revisions to one working show, each tested on the rig the following weekend,
+with a Stream Deck driving the cues over MIDI. The failures here are quieter: the file opens, the
+panel looks right, and one part of the show simply does not do what it should.
+
+### Bug 30: A cue "does nothing", but the same values work from Lightkey's Design view
+
+**Symptom:** a set of new cues — built-in fixture programmes — did nothing on the rig. Selecting
+the same programme on the fixture in Lightkey's Design view worked instantly. The file looked
+right: the values, the encoding and the fixtures were all correct.
+
+**Cause:** priority. An existing "effects off" cue at priority 7 still held the same fixtures at
+intensity 0, and it was active most of the time because it is the resting state of its pane. The
+new cues sat at priority 6. On Lightkey's LTP stack the higher priority wins every feature both
+cues define, so the new cues were outranked the moment they fired. The Design view overrides every
+cue, which is why it worked there — and why that comparison is the diagnostic.
+
+**Fix:** raise the new cues above whatever they must beat, and keep them below whatever must still
+beat them (blackout, preach/MC looks). Or take the fixtures out of the outranking cue.
+
+**Detection:** list every cue whose presets touch the same fixtures, with its priority:
+
+```python
+for cue in cues:
+    for step in steps_of(cue):                       # presets and sequence steps
+        if fixtures & set(store(step)['umbrellaContainers']):
+            print(name(cue), cue['priority'])
+```
+
+Anything above your cue's priority that can be active at the same time is a suspect. Ask the user
+which cues were lit when it failed.
+
+**Rule:** when "it doesn't work" and the data is correct, diagnose before changing anything —
+`docs/update-workflow.md`, stage 3.
+
+### Bug 31: A controller that sends note-offs + a trigger with "On/off" ticked → feedback, crash
+
+**Symptom:** one press on a Stream Deck key made several cues switch on and off in quick
+succession, and Lightkey crashed. Unplugging the controller was the only way to stop it.
+
+**Cause:** the trigger's `onOff: True` ("On/off" in Lightkey's trigger settings) makes Lightkey
+treat **every** incoming message as a press, note-offs included. A Stream Deck Latch key sends two
+messages per press (an off for the key it unlights, then an on), and Lightkey's own MIDI feedback
+lights and unlights keys in turn. With `onOff` ticked, each off toggled a cue, whose feedback moved
+a key, which sent more messages.
+
+**Fix:** leave `onOff: False` on every trigger a controller drives, and pair key types with
+behaviours as `docs/streamdeck-midi.md` → "Key modes and Lightkey behaviours" sets out (Latch key
+↔ Flash, Push key ↔ Toggle, Hold key ↔ Flash). The rule of thumb: the controller may only send
+note-ons that each do one thing, plus note-offs that Lightkey ignores or that release a Flash.
+
+**Detection:** `tools/check_streamdeck_profile.py <profile> <show>` fails on the pairing. Run
+against the profile and show that crashed, it reports every affected key.
+
+### Bug 32: Custom-capability index taken from the array order points at the wrong channel
+
+**Symptom:** a built-in function written into a preset controls the wrong thing, or nothing, and
+worked in an earlier version of the same file.
+
+**Cause:** the `capability_index` in `custom--<profile>--<personality>--<index>` is the position
+after sorting the personality's capabilities **by channel**. The `capabilities` array itself is
+reordered by Lightkey between saves, so an index counted in array order lands on a different
+(often unnamed) capability as soon as the user re-saves.
+
+**Fix and detection:** always sort by `channel` before counting, and assert that the indexed
+capability's `customName` is the one you meant (`fpstore-format.md` → Custom capabilities).

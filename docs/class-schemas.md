@@ -392,15 +392,25 @@ LXKeyTrigger { 'triggerType': 0, 'shortcut': {'keyCode', 'modifierFlags', 'chara
 LXAction { 'params': NSDictionary {'type': 'ToggleCue', 'activationBehavior': 0, 'cueUUID': NSUUID} }
 ```
 
-* `activationBehavior`: `0` = toggle on each trigger, `1` = active while held (a momentary
-  "flash" binding was `1`).
+* `activationBehavior` — Lightkey's trigger "Behavior": `0` **Toggle** (the GUI's default when
+  you capture a note), `1` **Flash** (note-on activates, note-off deactivates: momentary keys and
+  Stream Deck latch keys), `2` **Activate** (on only), `3` **Deactivate** (off only). Order taken
+  from the app's own strings and confirmed on a rig.
+* `channel` is **0-based** (a controller's channel 4 is stored as 3). `note` is 0–127.
+* `onOff` is the trigger's "On/off" tick ("for stateful buttons which only send a single message
+  when operated"). With it ticked every message counts as a press, note-offs included; leave it
+  `False` for any controller that sends note-offs — see `pitfalls.md` Bug 31.
+* `endpointName` is the input port, or `$null` (UID 0) for **Any** port — which is how Lightkey's
+  own demo projects store their triggers, and what you want when a controller's port name can
+  differ between machines.
 * **Bindings reference cues by `cueUUID`.** A binding whose UUID no longer matches any `LXCue`
-  decodes fine and does nothing — Bug 28. `tools/inspect_project.py --midi` lists them.
-* The same `LXAction` shape is used by panel buttons' `clusterRequiresSelection`-free triggers,
-  so cloning a binding is: copy trigger dict with a new `note`, copy action with a new
-  `cueUUID` object pointing at your cue's UUID bytes, wrap in a new `LXBinding` with a fresh
-  UUID, append to `bindings`. (Not exercised in shipped output yet — the user preferred to map
-  notes in the GUI.)
+  decodes fine and does nothing — Bug 28. `tools/inspect_project.py --midi` lists them;
+  `tools/export_midi_map.py` writes the whole map as CSV.
+* **Adding bindings from a script is proven** (hundreds of triggers across ten shipped versions,
+  exercised on a rig): `lightkey/bindings.py` → `add_note_trigger()` clones the trigger and action
+  shape from a binding the user made in the GUI, points a new `cueUUID` at your cue, and refuses a
+  channel/note already in use. `free_notes()` finds unused ones. `docs/streamdeck-midi.md` covers
+  driving them from a Stream Deck.
 
 ## Fixture profiles and capabilities
 
